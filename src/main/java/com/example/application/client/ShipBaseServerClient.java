@@ -1,9 +1,6 @@
 package com.example.application.client;
-
-import com.example.application.entity.EchoData;
 import com.example.application.entity.SectorInfo;
 import com.example.application.entity.ShipData;
-import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 

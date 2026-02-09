@@ -11,5 +11,4 @@ public class Nav {
   String ShipId;
   Course course;
   Rudder rudder;
-
 }

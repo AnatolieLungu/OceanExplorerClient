@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class ShipData {
   private String shipId;
-  private String name;
+  private String shipName;
   private int sectorX;
   private int sectorY;
   private int directionX;

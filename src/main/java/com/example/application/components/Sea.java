@@ -5,6 +5,7 @@ import com.example.application.entity.Ground;
 import com.example.application.entity.SectorInfo;
 import com.example.application.entity.ShipData;
 import com.example.application.service.ShipCommandService;
+import com.vaadin.flow.component.ClientCallable;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.dom.Style;
@@ -15,15 +16,23 @@ import jakarta.annotation.PostConstruct;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 @SpringComponent
 @UIScope
 public class Sea extends Div {
 
   private static final String INITIAL_COLOR = "#6694e4ff";
+  private static final double[] ZOOM_LEVELS = {1, 2, 3, 5, 8};
+  private static final int BASE_SIZE = 720;
+
   private final ShipCommandService shipService;
   private final Div[][] cells = new Div[100][100];
   private final Map<ShipData, Div> shipCells = new HashMap<>();
+  private final Div gridContainer = new Div();
+
+  private int currentZoomIndex = 0;
+  private Consumer<Double> wheelZoomListener;
 
   public Sea(ShipCommandService shipService) {
     this.shipService = shipService;
@@ -34,6 +43,7 @@ public class Sea extends Div {
   public void init(){
     createGrid();
     loadMap();
+    attachWheelZoomJs();
   }
 
   private void createGrid() {
@@ -44,7 +54,7 @@ public class Sea extends Div {
             .set("grid-column", String.valueOf(x + 1))
             .set("grid-row",    String.valueOf(100 - y));
         cells[x][y] = cell;
-        add(cell);
+        gridContainer.add(cell);
       }
     }
   }
@@ -114,7 +124,7 @@ public class Sea extends Div {
     int x = shipData.getSectorX();
     int y = shipData.getSectorY();
 
-    Image img = new Image("images/ship.png", shipData.getName());
+    Image img = new Image("images/ship.png", shipData.getShipName());
     img.setWidth("100%");
     img.setHeight("100%");
     img.getStyle()
@@ -130,6 +140,17 @@ public class Sea extends Div {
     cell.add(img);
 
     shipCells.put(shipData, cell);
+  }
+
+  /** Remove a ship icon from the sea grid and clean up the tracking map. */
+  public void removeShipFromSea(ShipData shipData) {
+    Div cell = shipCells.remove(shipData);
+    if (cell != null) {
+      cell.getChildren()
+          .filter(component -> component instanceof Image)
+          .findFirst()
+          .ifPresent(cell::remove);
+    }
   }
 
   public void moveShip(ShipData shipData, Directions direction) {
@@ -169,18 +190,75 @@ public class Sea extends Div {
     };
   }
 
+  public void setZoom(double zoomLevel) {
+    // Find the matching zoom index
+    for (int i = 0; i < ZOOM_LEVELS.length; i++) {
+      if (ZOOM_LEVELS[i] == zoomLevel) {
+        currentZoomIndex = i;
+        break;
+      }
+    }
+    int size = (int) (BASE_SIZE * zoomLevel);
+    gridContainer.getStyle()
+        .setWidth(size + "px")
+        .setHeight(size + "px");
+  }
+
+  public void setWheelZoomListener(Consumer<Double> listener) {
+    this.wheelZoomListener = listener;
+  }
+
+  @ClientCallable
+  private void onWheelZoom(int zoomIndex) {
+    if (zoomIndex >= 0 && zoomIndex < ZOOM_LEVELS.length) {
+      currentZoomIndex = zoomIndex;
+      if (wheelZoomListener != null) {
+        wheelZoomListener.accept(ZOOM_LEVELS[currentZoomIndex]);
+      }
+    }
+  }
+
+  private void attachWheelZoomJs() {
+    getElement().executeJs(
+        "const wrapper = this;" +
+        "const grid = this.firstElementChild;" +
+        "const levels = [1, 2, 3, 5, 8];" +
+        "let idx = 0;" +
+        "wrapper.addEventListener('wheel', function(e) {" +
+        "  if (!e.ctrlKey) return;" +
+        "  e.preventDefault();" +
+        "  if (e.deltaY < 0 && idx < levels.length - 1) idx++;" +
+        "  else if (e.deltaY > 0 && idx > 0) idx--;" +
+        "  else return;" +
+        "  const size = 720 * levels[idx];" +
+        "  grid.style.width = size + 'px';" +
+        "  grid.style.height = size + 'px';" +
+        "  wrapper.$server.onWheelZoom(idx);" +
+        "}, {passive: false});"
+    );
+  }
+
   private void setSeaContainerLayout() {
+    // Outer wrapper: fixed size, scrollable
     getStyle()
+        .setWidth(BASE_SIZE + "px")
+        .setHeight(BASE_SIZE + "px")
+        .setMaxWidth("95vw")
+        .setOverflow(Style.Overflow.AUTO)
+        .setBoxShadow("0 15px 40px rgba(0,0,0,0.65)")
+        .setBackground("transparent")
+        .setPosition(Style.Position.RELATIVE);
+
+    // Inner grid container: zoomable
+    gridContainer.getStyle()
         .setDisplay(Style.Display.GRID)
         .set("grid-template-columns", "repeat(100, 1fr)")
         .set("gap", "0")
-        .setWidth("720px")
-        .setMaxWidth("95vw")
-        .set("aspect-ratio", "1 / 1")
-        .setOverflow(Style.Overflow.HIDDEN)
-        .setBoxShadow("0 15px 40px rgba(0,0,0,0.65)")
+        .setWidth(BASE_SIZE + "px")
+        .setHeight(BASE_SIZE + "px")
         .setBackground("transparent");
 
+    add(gridContainer);
   }
 
   private Div createBaseCell() {

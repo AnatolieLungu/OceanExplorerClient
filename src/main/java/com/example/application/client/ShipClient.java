@@ -6,6 +6,7 @@ import com.example.application.entity.Rudder;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 @Component
 public class ShipClient {
@@ -19,18 +20,22 @@ public class ShipClient {
   }
 
   public String launch(String name, int x, int y, int dx, int dy) {
-    return webClient.post()
-        .uri(uriBuilder -> uriBuilder
-            .path("/api/ship/launch")
-            .queryParam("name", name)
-            .queryParam("x", x)
-            .queryParam("y", y)
-            .queryParam("dx", dx)
-            .queryParam("dy", dy)
-            .build())
-        .retrieve()
-        .bodyToMono(String.class)
-        .block();
+    try {
+      return webClient.post()
+          .uri(uriBuilder -> uriBuilder
+              .path("/api/ship/launch")
+              .queryParam("name", name)
+              .queryParam("x", x)
+              .queryParam("y", y)
+              .queryParam("dx", dx)
+              .queryParam("dy", dy)
+              .build())
+          .retrieve()
+          .bodyToMono(String.class)
+          .block();
+    } catch (WebClientResponseException e) {
+      return e.getResponseBodyAsString();
+    }
   }
 
   public EchoData radar(String shipId) {
@@ -42,7 +47,7 @@ public class ShipClient {
   }
 
   public @Nullable String navigation(String shipId, Course course, Rudder rudder) {
-    return webClient.post()
+    return webClient.get()
         .uri(uriBuilder -> uriBuilder
             .path("/api/ship/navigate")
             .queryParam("shipId", shipId)

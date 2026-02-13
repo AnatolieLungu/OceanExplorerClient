@@ -3,6 +3,7 @@ package com.example.application.client;
 import com.example.application.entity.Course;
 import com.example.application.entity.EchoData;
 import com.example.application.entity.Rudder;
+import com.example.application.entity.Vec2D;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -46,7 +47,7 @@ public class ShipClient {
         .block();
   }
 
-  public @Nullable String navigation(String shipId, Course course, Rudder rudder) {
+  public @Nullable Vec2D navigation(String shipId, Course course, Rudder rudder) {
     return webClient.get()
         .uri(uriBuilder -> uriBuilder
             .path("/api/ship/navigate")
@@ -55,7 +56,7 @@ public class ShipClient {
             .queryParam("rudder", rudder)
             .build())
         .retrieve()
-        .bodyToMono(String.class)
+        .bodyToMono(Vec2D.class)
         .block();
   }
 

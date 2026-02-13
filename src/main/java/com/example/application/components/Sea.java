@@ -153,12 +153,15 @@ public class Sea extends Div {
     }
   }
 
-  public void moveShip(ShipData shipData, Directions direction) {
+  public void moveShip(ShipData shipData, Directions direction,Directions directionAfterNavigate) {
     int oldX = shipData.getSectorX();
     int oldY = shipData.getSectorY();
 
+    System.out.println("sector :" + oldX + " ..... " + oldY);
+
     int newX = oldX + direction.getDx();
     int newY = oldY + direction.getDy();
+    System.out.println("sector :" + newX + " ..... " + newY);
 
     Div oldCell = shipCells.get(shipData);
     if (oldCell != null) {
@@ -170,9 +173,8 @@ public class Sea extends Div {
 
     shipData.setSectorX(newX);
     shipData.setSectorY(newY);
-    shipData.setDirectionX(direction.getDx());
-    shipData.setDirectionY(direction.getDy());
-
+    shipData.setDirectionX(directionAfterNavigate.getDx());
+    shipData.setDirectionY(directionAfterNavigate.getDy());
     placeShipOnSea(shipData);
   }
 

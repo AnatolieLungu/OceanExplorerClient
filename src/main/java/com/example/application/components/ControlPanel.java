@@ -23,6 +23,7 @@ import com.vaadin.flow.spring.annotation.UIScope;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,9 +35,12 @@ public class ControlPanel extends Div {
   private final ShipCommandService shipService;
   private final TranslationService ts;
   private final Sea sea;
-  private final Navigation navigation;
+
   private final VerticalLayout shipList = new VerticalLayout();
   private ShipData selectedShipData;
+  private final Navigation navigation;
+  private List<ShipData> allShipData = new ArrayList<>();
+
 
   // Translatable UI components (updated on language change)
   private H3 controlPanelTitle;
@@ -73,15 +77,32 @@ public class ControlPanel extends Div {
     controlPanelTitle.getStyle().setTextAlign(Style.TextAlign.CENTER);
 
     navigation.setDirectionListener(selectedDirection -> {
+
       Directions navigableDirection = Directions.fromShortName(selectedDirection);
+
 
       if (selectedShipData != null) {
         Directions actualDirection = Directions.fromDelta(
             selectedShipData.getDirectionX(), selectedShipData.getDirectionY());
+
+
+        Vec2D directionAfterNavigate = shipService.navigate(selectedShipData.getShipId(), actualDirection, navigableDirection);
+        System.out.println("actualDirection:  " + actualDirection.toString());
+        System.out.println("navigableDirection: " + navigableDirection.toString());
+        sea.moveShip(selectedShipData, navigableDirection,Directions.fromDelta(directionAfterNavigate.getX(), directionAfterNavigate.getY()));
+
+        selectedShipData.setDirectionX(directionAfterNavigate.getX());
+        selectedShipData.setDirectionY(directionAfterNavigate.getY());
+
+        //shiff bewegt sich richtig
+        navigation.setupShipOnControlPanel(Directions.fromDelta(directionAfterNavigate.getX(), directionAfterNavigate.getY()));
+
         List<Vec2D> unavailableDirections = shipService.getUnavailableDirections(selectedShipData);
-        shipService.navigate(selectedShipData.getShipId(), actualDirection, navigableDirection);
-        sea.moveShip(selectedShipData, navigableDirection);
+
+
         navigation.setAllowedDirections(unavailableDirections);
+        refreshShipList();
+
       }
     });
 
@@ -90,7 +111,6 @@ public class ControlPanel extends Div {
     launchBtn = new Button(ts.get("button.launch"), e -> openAddShipDialog());
     radarBtn = new Button(ts.get("button.radar"), e -> {
       navigation.setAllowedDirections(shipService.getUnavailableDirections(selectedShipData));
-      shipService.getUnavailableDirections(selectedShipData);
     });
     scanBtn = new Button(ts.get("button.scan"));
     exitBtn = new Button(ts.get("button.exit"), e -> {
@@ -112,7 +132,7 @@ public class ControlPanel extends Div {
 
       // Reset navigation buttons (no ship selected)
       navigation.resetAllDirectionsToRed();
-
+      addShipToControlPanel(selectedShipData);
       selectedShipData = null;
     });
 
@@ -180,12 +200,14 @@ public class ControlPanel extends Div {
   }
 
   private void addShipToControlPanel(ShipData shipData) {
+
     HorizontalLayout itemLayout = getShipContainerLayout(shipData);
     itemLayout.addClickListener(e -> {
       shipList.getChildren().forEach(c ->
-          c.getElement().getStyle().setBackground("#f0f4f8"));
+          c.getElement().getStyle().setBackground("#f0f4f8"));;
       itemLayout.getElement().getStyle().setBackground("#c3e0ff");
       selectedShipData = shipData;
+      navigation.setupShipOnControlPanel(Directions.fromDelta(selectedShipData.getDirectionX(), selectedShipData.getDirectionY()));
     });
     shipList.add(itemLayout);
   }
@@ -295,11 +317,33 @@ public class ControlPanel extends Div {
 
     shipList.setMinHeight("120px");
 
-    List<ShipData> allShipData = shipService.getShips();
+    allShipData = shipService.getShips();
 
     for (ShipData shipData : allShipData) {
       addShipToControlPanel(shipData);
       sea.placeShipOnSea(shipData);
+    }
+  }
+  private void refreshShipList(){
+    shipList.removeAll();
+    shipList.setPadding(false);
+    shipList.setSpacing(false);
+
+    shipList.setHeight("200px");
+    shipList.setMaxHeight("200px");
+    shipList.getStyle()
+        .set("overflow-y", "auto")
+        .set("overflow-x", "hidden")
+        .set("border", "1px solid #e0e0e0")
+        .set("border-radius", "6px")
+        .setBackground("#ffffff");
+
+    shipList.setMinHeight("120px");
+
+    allShipData = shipService.getShips();
+
+    for (ShipData shipData : allShipData) {
+      addShipToControlPanel(shipData);
     }
   }
 }

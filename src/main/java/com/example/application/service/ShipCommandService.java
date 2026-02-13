@@ -102,31 +102,32 @@ public class ShipCommandService {
     }
   }
 
-  public void navigate(String shipId,Directions actualDirection,Directions expectedDirection) {
+  public Vec2D navigate(String shipId,Directions actualDirection,Directions expectedDirection) {
 
     // Gleiche Richtung
     if (actualDirection == expectedDirection) {
-      shipClient.navigation(shipId,Course.Forward,Rudder.Center);
+      return shipClient.navigation(shipId,Course.Forward,Rudder.Center);
     }
     int diff = ( actualDirection.ordinal() - expectedDirection.ordinal() + 8) % 8;
     // Gleiche Richtung Rückwerz
     if (diff == 4) {
-      shipClient.navigation(shipId,Course.Backward,Rudder.Center);
+      return shipClient.navigation(shipId,Course.Backward,Rudder.Center);
     }
 
     // 45° → vorwärts + Rudder
     if (diff == 1 || diff == 7) {
       Course course = Course.Forward;
       Rudder rudder = (diff == 1) ? Rudder.Left : Rudder.Right;
-      shipClient.navigation(shipId, course, rudder);
+      return shipClient.navigation(shipId, course, rudder);
     }
 
     // 135° → rückwärts + Rudder-Korrektur
     if (diff == 3 || diff == 5) {
       Course course = Course.Backward;
-      Rudder rudder = (diff == 3) ? Rudder.Right : Rudder.Left;
-      shipClient.navigation(shipId, course, rudder);
+      Rudder rudder = (diff == 3) ? Rudder.Left : Rudder.Right;
+      return shipClient.navigation(shipId, course, rudder);
     }
+    return null;
   }
 
 }

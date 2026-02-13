@@ -34,6 +34,11 @@ public enum Directions {
     }
     return null;
   }
+  public static String nameFromDirection(Directions directions){
+    if(directions == null)
+      return null;
+    return directions.getShortName();
+  }
 
   public static Directions fromDelta(int dx, int dy) {
     for (Directions dir : values()) {

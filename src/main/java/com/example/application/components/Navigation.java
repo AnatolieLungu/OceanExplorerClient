@@ -183,7 +183,7 @@ public class Navigation extends VerticalLayout {
         .set("transform-origin", "center center");
   }
 
-  public  void setupShipOnControlPanel(Directions directions) {
+  public  void rotateShipOnSelect(Directions directions) {
     if (directions != null) {
       int index = switch (directions) {
         case Directions.NORTH_EAST -> 1;

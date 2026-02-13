@@ -1,9 +1,6 @@
 package com.example.application.client;
 
-import com.example.application.entity.Course;
-import com.example.application.entity.EchoData;
-import com.example.application.entity.Rudder;
-import com.example.application.entity.Vec2D;
+import com.example.application.entity.*;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -60,11 +57,14 @@ public class ShipClient {
         .block();
   }
 
-  public String scan() {
+  public ScanResult scan(String shipId) {
     return webClient.get()
-        .uri("/api/ship/scan")
+        .uri(uriBuilder -> uriBuilder
+            .path("/api/ship/scan")
+            .queryParam("shipId",shipId)
+            .build())
         .retrieve()
-        .bodyToMono(String.class)
+        .bodyToMono(ScanResult.class)
         .block();
   }
 

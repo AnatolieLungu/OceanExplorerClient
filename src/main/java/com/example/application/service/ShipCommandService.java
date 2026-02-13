@@ -130,4 +130,7 @@ public class ShipCommandService {
     return null;
   }
 
+  public ScanResult scan(String shipId){
+    return shipClient.scan(shipId);
+  }
 }

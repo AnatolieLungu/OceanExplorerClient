@@ -235,7 +235,7 @@ public class ControlPanel extends Div {
       // Remove ship from the control-panel list
       Span span = shipSpanMap.remove(selectedShipData);
       if (span != null) {
-        span.getParent().ifPresent(parent -> shipList.remove(parent));
+        span.getParent().ifPresent(shipList::remove);
       }
 
       // Remove ship icon from the sea grid
@@ -305,7 +305,7 @@ public class ControlPanel extends Div {
     HorizontalLayout itemLayout = getShipContainerLayout(shipData);
     itemLayout.addClickListener(e -> {
       shipList.getChildren().forEach(c ->
-          c.getElement().getStyle().setBackground("#f0f4f8"));;
+          c.getElement().getStyle().setBackground("#f0f4f8"));
       itemLayout.getElement().getStyle().setBackground("#c3e0ff");
       selectedShipData = shipData;
       navigation.rotateShipOnSelect(Directions.fromDelta(selectedShipData.getDirectionX(), selectedShipData.getDirectionY()));

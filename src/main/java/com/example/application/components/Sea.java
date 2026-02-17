@@ -22,12 +22,12 @@ import java.util.function.Consumer;
 @UIScope
 public class Sea extends Div {
 
-  private static final String INITIAL_COLOR = "#6694e4ff";
+  private static final String INITIAL_COLOR = "#d4f1f9";
   private static final double[] ZOOM_LEVELS = {1, 2, 3, 5, 8};
   private static final int BASE_SIZE = 720;
 
   private final ShipCommandService shipService;
-  private final Div[][] cells = new Div[100][100];
+  public final Div[][] cells = new Div[100][100];
   private final Map<ShipData, Div> shipCells = new HashMap<>();
   private final Div gridContainer = new Div();
 
@@ -68,12 +68,12 @@ public class Sea extends Div {
       if (x < 0 || x >= 99 || y < 0 || y >= 99) {
         continue;
       }
-      Div cell = cells[y][x];
+      Div cell = cells[x][y];
       applySectorToCell(cell, sector);
     }
   }
 
-  private void applySectorToCell(Div cell,SectorInfo sector) {
+  public void applySectorToCell(Div cell,SectorInfo sector) {
     String bgColor = getGroundColor(sector.getGround());
     if (sector.getGround() == Ground.Water && sector.getDepth() > 200) {
       bgColor = darkenColor(bgColor, 0.25);
@@ -278,6 +278,11 @@ public class Sea extends Div {
         .setColor("white");
 
     return cell;
+  }
+
+  public Div getCell(int x,int y){
+    if (y < 0 || y >= 100 || x < 0 || x >= 100) return null;
+    return cells[x][y];
   }
 
 }

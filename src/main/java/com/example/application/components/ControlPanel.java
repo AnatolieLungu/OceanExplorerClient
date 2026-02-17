@@ -1,11 +1,9 @@
 package com.example.application.components;
 
-import com.example.application.entity.Directions;
-import com.example.application.entity.ScanResult;
-import com.example.application.entity.ShipData;
-import com.example.application.entity.Vec2D;
+import com.example.application.entity.*;
 import com.example.application.i18n.TranslationService;
 import com.example.application.service.ShipCommandService;
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dialog.Dialog;
@@ -25,10 +23,8 @@ import com.vaadin.flow.spring.annotation.UIScope;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 @SpringComponent
 @UIScope
@@ -151,6 +147,7 @@ public class ControlPanel extends Div {
     createLaunchButton();
     createRadarButton(shipService, navigation);
     createScanButton();
+    createRouteButton();
     createExitButton(sea, shipService, navigation);
   }
 
@@ -161,6 +158,32 @@ public class ControlPanel extends Div {
   private void createRadarButton(ShipCommandService shipService, Navigation navigation) {
     radarBtn = new Button(ts.get("button.radar"), e -> {
       navigation.setAllowedDirections(shipService.getUnavailableDirections(selectedShipData));
+
+      List<Echo> echoes = shipService.getSectorInfo(selectedShipData.getShipId());
+
+      for (Echo echo : echoes) {
+        Sector sector = echo.getSector();
+        if (sector == null) continue;
+
+        int x = sector.getVec2()[0];
+        int y = sector.getVec2()[1];
+
+        if (x < 0 || x >= 99 || y < 0 || y >= 99) continue;
+
+        Div cell = sea.getCell(x, y);
+        if (cell == null) continue;
+        if (echo.getGround().equals(Ground.Land)){
+          cell.getStyle()
+              .setBorder("2px solid #46c946")
+              .setBackground("#46c946")
+              .set("box-shadow", "inset 0 0 8px #46c946");
+        }else {
+          cell.getStyle()
+              .setBorder("1px solid #6694e4ff")
+              .setBackground("#6694e4ff")
+              .set("box-shadow", "inset 0 0 8px #6694e4ff");
+        }
+      }
     });
   }
 
@@ -199,6 +222,55 @@ public class ControlPanel extends Div {
       dialog.add(layout);
       dialog.open();
 
+    });
+  }
+
+  private void createRouteButton() {
+    scanBtn = new Button(ts.get("button.route"));
+
+    // Wichtig: Die Logik kommt NUR in den Click-Listener
+    scanBtn.addClickListener(clickEvent -> {
+
+
+      // 2. Ab hier ist selectedShipData garantiert nicht null
+      List<ShipSector> shipRoute = shipService.getShipRoute(
+          selectedShipData.getShipId()
+      );
+
+      // Erste Hervorhebung (grün) – sofort
+      shipRoute.forEach(ship -> {
+        Div cell = sea.getCell(ship.getShipSectorX(), ship.getShipSectorY());
+        if (cell != null) {  // kleine Absicherung
+          cell.getStyle()
+              .setBorder("2px solid #4ad8f5")
+              .setBackground("#4ad8f5")
+              .set("box-shadow", "inset 0 0 8px #4ad8f5");
+        }
+      });
+
+      // 3 Sekunden Pause + zweite Hervorhebung (blau)
+      UI ui = UI.getCurrent();
+      if (ui == null) return;
+
+      CompletableFuture.runAsync(() -> {
+        try {
+          Thread.sleep(1000);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+        }
+
+        ui.access(() -> {
+          shipRoute.forEach(ship -> {
+            Div cell = sea.getCell(ship.getShipSectorX(), ship.getShipSectorY());
+            if (cell != null) {
+              cell.getStyle()
+                  .setBorder("2px solid #6694e4ff")
+                  .setBackground("#6694e4ff")
+                  .set("box-shadow", "inset 0 0 8px #6694e4ff");
+            }
+          });
+        });
+      });
     });
   }
 

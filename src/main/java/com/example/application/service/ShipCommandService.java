@@ -41,6 +41,11 @@ public class ShipCommandService {
     shipClient.exit(shipId);
   }
 
+  public List<Echo> getSectorInfo(String shipId) {
+    EchoData echos = shipClient.radar(shipId);
+    return echos.getEchos();
+  }
+
   public List<Vec2D> getUnavailableDirections(ShipData shipData) {
     unavailableDirections.clear();
 
@@ -132,5 +137,9 @@ public class ShipCommandService {
 
   public ScanResult scan(String shipId){
     return shipClient.scan(shipId);
+  }
+
+  public List<ShipSector> getShipRoute(String shipId){
+    return shipBaseServerClient.loadRoutes().get(shipId);
   }
 }

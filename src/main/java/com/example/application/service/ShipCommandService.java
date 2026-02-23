@@ -3,6 +3,7 @@ package com.example.application.service;
 import com.example.application.client.ShipBaseServerClient;
 import com.example.application.client.ShipClient;
 import com.example.application.entity.*;
+import com.example.application.entity.ScanResult;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -133,6 +134,10 @@ public class ShipCommandService {
       return shipClient.navigation(shipId, course, rudder);
     }
     return null;
+  }
+
+  public AutoPilotData runAutoPilotStep(String shipId) {
+    return shipClient.autoPilot(shipId);
   }
 
   public ScanResult scan(String shipId){

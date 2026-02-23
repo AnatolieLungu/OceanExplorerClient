@@ -25,6 +25,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @SpringComponent
 @UIScope
@@ -40,14 +42,18 @@ public class ControlPanel extends Div {
   private List<ShipData> allShipData = new ArrayList<>();
 
 
-  // Translatable UI components (updated on language change)
   private H3 controlPanelTitle;
   private H3 shipsTitle;
   private Button launchBtn;
   private Button radarBtn;
   private Button scanBtn;
   private Button exitBtn;
+  private Button autoPilotBtn;
+  private Select<String> speedSelect;
   private final Map<ShipData, Span> shipSpanMap = new HashMap<>();
+
+  private volatile boolean autoPilotRunning = false;
+  private ExecutorService autoPilotExecutor;
 
   @PostConstruct
   public void init() {
@@ -56,6 +62,8 @@ public class ControlPanel extends Div {
       selectedShipData = allShipData.getFirst();
     }
     ts.addLanguageChangeListener(this::updateTexts);
+
+    addDetachListener(e -> stopAutoPilot());
   }
 
   @Autowired
@@ -85,7 +93,7 @@ public class ControlPanel extends Div {
 
   private VerticalLayout createnNavigationDiv(Navigation navigation) {
 
-    HorizontalLayout controllerButtons = createControllerButtons();
+    VerticalLayout controllerButtons = createControllerButtons();
 
     VerticalLayout controls = new VerticalLayout(
         navigation,
@@ -98,12 +106,28 @@ public class ControlPanel extends Div {
     return controls;
   }
 
-  private HorizontalLayout createControllerButtons() {
+  private VerticalLayout createControllerButtons() {
     HorizontalLayout functions = new HorizontalLayout(launchBtn, radarBtn, scanBtn, exitBtn);
     functions.setAlignItems(FlexComponent.Alignment.CENTER);
     functions.setJustifyContentMode(FlexComponent.JustifyContentMode.CENTER);
     functions.setSpacing(true);
-    return functions;
+
+    speedSelect = new Select<>();
+    speedSelect.setItems("Slow", "Normal", "Fast");
+    speedSelect.setValue("Normal");
+    speedSelect.setWidth("100px");
+    speedSelect.getStyle().setFontSize("0.8rem");
+
+    HorizontalLayout autoPilotRow = new HorizontalLayout(autoPilotBtn, speedSelect);
+    autoPilotRow.setAlignItems(FlexComponent.Alignment.CENTER);
+    autoPilotRow.setJustifyContentMode(FlexComponent.JustifyContentMode.CENTER);
+    autoPilotRow.setSpacing(true);
+
+    VerticalLayout allButtons = new VerticalLayout(functions, autoPilotRow);
+    allButtons.setPadding(false);
+    allButtons.setSpacing(true);
+    allButtons.setAlignItems(FlexComponent.Alignment.CENTER);
+    return allButtons;
   }
 
   private void createShipNavigationComponent(Sea sea, ShipCommandService shipService, Navigation navigation) {
@@ -149,6 +173,7 @@ public class ControlPanel extends Div {
     createScanButton();
     createRouteButton();
     createExitButton(sea, shipService, navigation);
+    createAutoPilotButton();
   }
 
   private void createLaunchButton() {
@@ -301,23 +326,122 @@ public class ControlPanel extends Div {
         return;
       }
 
-      // Tell the backend
       shipService.exit(selectedShipData.getShipId());
 
-      // Remove ship from the control-panel list
       Span span = shipSpanMap.remove(selectedShipData);
       if (span != null) {
         span.getParent().ifPresent(shipList::remove);
       }
 
-      // Remove ship icon from the sea grid
       sea.removeShipFromSea(selectedShipData);
 
-      // Reset navigation buttons (no ship selected)
       navigation.resetAllDirectionsToRed();
       addShipToControlPanel(selectedShipData);
 
     });
+  }
+
+  private void createAutoPilotButton() {
+    autoPilotBtn = new Button(ts.get("button.autopilot"), e -> {
+      if (autoPilotRunning) {
+        stopAutoPilot();
+      } else {
+        startAutoPilot();
+      }
+    });
+    styleAutoPilotButton(false);
+  }
+
+  private void startAutoPilot() {
+    if (selectedShipData == null) {
+      Notification.show("No ship selected", 2000, Notification.Position.MIDDLE);
+      return;
+    }
+
+    autoPilotRunning = true;
+    styleAutoPilotButton(true);
+    setControlsEnabled(false);
+
+    UI ui = UI.getCurrent();
+    if (ui == null) return;
+
+    autoPilotExecutor = Executors.newSingleThreadExecutor();
+    autoPilotExecutor.submit(() -> {
+      try {
+        while (autoPilotRunning) {
+          AutoPilotData data = shipService.runAutoPilotStep(selectedShipData.getShipId());
+
+          ui.access(() -> {
+            sea.applyAutoPilotStep(selectedShipData, data);
+            refreshShipListSimple();
+            if (data.getShipPosition() != null) {
+              Directions dir = Directions.fromDelta(
+                  selectedShipData.getDirectionX(), selectedShipData.getDirectionY());
+              navigation.rotateShipOnSelect(dir);
+            }
+          });
+
+          Thread.sleep(getDelayFromSpeed());
+        }
+      } catch (InterruptedException ignored) {
+        Thread.currentThread().interrupt();
+      } catch (Exception ex) {
+        ui.access(() -> {
+          Notification.show(ts.get("autopilot.error") + ": " + ex.getMessage(),
+              3000, Notification.Position.MIDDLE);
+          stopAutoPilot();
+        });
+      }
+    });
+
+    Notification.show(ts.get("autopilot.started"), 2000, Notification.Position.BOTTOM_START);
+  }
+
+  private void stopAutoPilot() {
+    if (!autoPilotRunning) return;
+
+    autoPilotRunning = false;
+    if (autoPilotExecutor != null) {
+      autoPilotExecutor.shutdownNow();
+      autoPilotExecutor = null;
+    }
+    styleAutoPilotButton(false);
+    setControlsEnabled(true);
+
+    Notification.show(ts.get("autopilot.stopped"), 2000, Notification.Position.BOTTOM_START);
+  }
+
+  private long getDelayFromSpeed() {
+    if (speedSelect == null) return 500;
+    return switch (speedSelect.getValue()) {
+      case "Slow" -> 1000;
+      case "Fast" -> 200;
+      default -> 500;
+    };
+  }
+
+  private void styleAutoPilotButton(boolean running) {
+    if (running) {
+      autoPilotBtn.setText(ts.get("button.autopilot.stop"));
+      autoPilotBtn.getStyle()
+          .setBackground("#e74c3c")
+          .setColor("white")
+          .set("font-weight", "bold");
+    } else {
+      autoPilotBtn.setText(ts.get("button.autopilot"));
+      autoPilotBtn.getStyle()
+          .setBackground("#0066cc")
+          .setColor("white")
+          .set("font-weight", "bold");
+    }
+  }
+
+  private void setControlsEnabled(boolean enabled) {
+    launchBtn.setEnabled(enabled);
+    radarBtn.setEnabled(enabled);
+    scanBtn.setEnabled(enabled);
+    exitBtn.setEnabled(enabled);
+    navigation.setEnabled(enabled);
   }
 
   private void setDivStyle() {
@@ -327,10 +451,12 @@ public class ControlPanel extends Div {
         .setBackground("#f8f9fa")
         .setBorder("1px solid #ddd")
         .setBorderRadius("8px")
-        .setPadding("16px");
+        .setPadding("16px")
+        .setDisplay(Style.Display.FLEX)
+        .set("flex-direction", "column")
+        .setOverflow(Style.Overflow.HIDDEN);
   }
 
-  /** Called when the language changes – refreshes every translatable text. */
   private void updateTexts() {
     controlPanelTitle.setText(ts.get("control.panel.title"));
     shipsTitle.setText(ts.get("ships.title"));
@@ -338,8 +464,8 @@ public class ControlPanel extends Div {
     radarBtn.setText(ts.get("button.radar"));
     scanBtn.setText(ts.get("button.scan"));
     exitBtn.setText(ts.get("button.exit"));
+    styleAutoPilotButton(autoPilotRunning);
 
-    // Update ship list item texts
     shipSpanMap.forEach((shipData, span) ->
         span.setText(buildShipInfoText(shipData)));
     }
@@ -382,7 +508,7 @@ public class ControlPanel extends Div {
       selectedShipData = shipData;
       navigation.rotateShipOnSelect(Directions.fromDelta(selectedShipData.getDirectionX(), selectedShipData.getDirectionY()));
     });
-    shipList.add(itemLayout);
+    shipList.addComponentAsFirst(itemLayout);
   }
 
   private HorizontalLayout getShipContainerLayout(ShipData shipData) {
@@ -479,16 +605,14 @@ public class ControlPanel extends Div {
     shipList.setPadding(false);
     shipList.setSpacing(false);
 
-    shipList.setHeight("200px");
-    shipList.setMaxHeight("200px");
     shipList.getStyle()
+        .set("flex", "1 1 auto")
         .set("overflow-y", "auto")
         .set("overflow-x", "hidden")
         .set("border", "1px solid #e0e0e0")
         .set("border-radius", "6px")
-        .setBackground("#ffffff");
-
-    shipList.setMinHeight("120px");
+        .setBackground("#ffffff")
+        .setMinHeight("0");
 
     allShipData = shipService.getShips();
 

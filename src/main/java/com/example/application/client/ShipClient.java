@@ -1,6 +1,7 @@
 package com.example.application.client;
 
 import com.example.application.entity.*;
+import com.example.application.entity.ScanResult;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -65,6 +66,17 @@ public class ShipClient {
             .build())
         .retrieve()
         .bodyToMono(ScanResult.class)
+        .block();
+  }
+
+  public AutoPilotData autoPilot(String shipId) {
+    return webClient.post()
+        .uri(uriBuilder -> uriBuilder
+            .path("/api/ship/autoPilot")
+            .queryParam("shipId", shipId)
+            .build())
+        .retrieve()
+        .bodyToMono(AutoPilotData.class)
         .block();
   }
 

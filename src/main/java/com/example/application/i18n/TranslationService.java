@@ -9,10 +9,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * UI-scoped translation service supporting live language switching (EN / DE).
- * Default language is English.
- */
 @Service
 @UIScope
 public class TranslationService {
@@ -45,6 +41,13 @@ public class TranslationService {
         en.put("button.exit",           "EXIT");
         en.put("ship.info.sector",      "sector");
         en.put("ship.info.direction",   "direction");
+        en.put("button.autopilot",      "AUTOPILOT");
+        en.put("button.autopilot.stop", "STOP");
+        en.put("button.route",          "ROUTE");
+        en.put("autopilot.speed",       "Speed");
+        en.put("autopilot.started",     "Autopilot started");
+        en.put("autopilot.stopped",     "Autopilot stopped");
+        en.put("autopilot.error",       "Autopilot error");
         TRANSLATIONS.put("en", en);
 
         // ── Deutsch ────────────────────────────────────────────────────────
@@ -69,16 +72,21 @@ public class TranslationService {
         de.put("button.exit",           "BEENDEN");
         de.put("ship.info.sector",      "Sektor");
         de.put("ship.info.direction",   "Richtung");
+        de.put("button.autopilot",      "AUTOPILOT");
+        de.put("button.autopilot.stop", "STOPP");
+        de.put("button.route",          "ROUTE");
+        de.put("autopilot.speed",       "Geschwindigkeit");
+        de.put("autopilot.started",     "Autopilot gestartet");
+        de.put("autopilot.stopped",     "Autopilot gestoppt");
+        de.put("autopilot.error",       "Autopilot-Fehler");
         TRANSLATIONS.put("de", de);
     }
 
-    /** Get a simple translation for the current language. */
     public String get(String key) {
         Map<String, String> messages = TRANSLATIONS.getOrDefault(currentLanguage, TRANSLATIONS.get("en"));
         return messages.getOrDefault(key, key);
     }
 
-    /** Get a parameterized translation (uses {@link MessageFormat}). */
     public String get(String key, Object... params) {
         String pattern = get(key);
         return MessageFormat.format(pattern, params);
@@ -88,13 +96,11 @@ public class TranslationService {
         return currentLanguage;
     }
 
-    /** Set the active language and notify all registered listeners. */
     public void setLanguage(String language) {
         this.currentLanguage = language;
         listeners.forEach(Runnable::run);
     }
 
-    /** Toggle between EN and DE. */
     public void toggleLanguage() {
         if ("en".equals(currentLanguage)) {
             setLanguage("de");

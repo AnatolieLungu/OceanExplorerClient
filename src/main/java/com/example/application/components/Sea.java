@@ -1,9 +1,6 @@
 package com.example.application.components;
 
-import com.example.application.entity.Directions;
-import com.example.application.entity.Ground;
-import com.example.application.entity.SectorInfo;
-import com.example.application.entity.ShipData;
+import com.example.application.entity.*;
 import com.example.application.service.ShipCommandService;
 import com.vaadin.flow.component.ClientCallable;
 import com.vaadin.flow.component.html.Div;
@@ -142,7 +139,6 @@ public class Sea extends Div {
     shipCells.put(shipData, cell);
   }
 
-  /** Remove a ship icon from the sea grid and clean up the tracking map. */
   public void removeShipFromSea(ShipData shipData) {
     Div cell = shipCells.remove(shipData);
     if (cell != null) {
@@ -227,14 +223,30 @@ public class Sea extends Div {
         "const levels = [1, 2, 3, 5, 8];" +
         "let idx = 0;" +
         "wrapper.addEventListener('wheel', function(e) {" +
-        "  if (!e.ctrlKey) return;" +
+        "  if (!e.ctrlKey && !e.metaKey) return;" +
         "  e.preventDefault();" +
-        "  if (e.deltaY < 0 && idx < levels.length - 1) idx++;" +
-        "  else if (e.deltaY > 0 && idx > 0) idx--;" +
+        // Determine new zoom index
+        "  let newIdx = idx;" +
+        "  if (e.deltaY < 0 && idx < levels.length - 1) newIdx = idx + 1;" +
+        "  else if (e.deltaY > 0 && idx > 0) newIdx = idx - 1;" +
         "  else return;" +
-        "  const size = 720 * levels[idx];" +
-        "  grid.style.width = size + 'px';" +
-        "  grid.style.height = size + 'px';" +
+        // Mouse position relative to the wrapper
+        "  const rect = wrapper.getBoundingClientRect();" +
+        "  const mouseX = e.clientX - rect.left;" +
+        "  const mouseY = e.clientY - rect.top;" +
+        // Content point under the mouse before zoom
+        "  const contentX = wrapper.scrollLeft + mouseX;" +
+        "  const contentY = wrapper.scrollTop + mouseY;" +
+        // Scale factor between old and new zoom
+        "  const scale = levels[newIdx] / levels[idx];" +
+        // Apply new size
+        "  const newSize = 720 * levels[newIdx];" +
+        "  grid.style.width = newSize + 'px';" +
+        "  grid.style.height = newSize + 'px';" +
+        // Adjust scroll so the point under the mouse stays put
+        "  wrapper.scrollLeft = contentX * scale - mouseX;" +
+        "  wrapper.scrollTop = contentY * scale - mouseY;" +
+        "  idx = newIdx;" +
         "  wrapper.$server.onWheelZoom(idx);" +
         "}, {passive: false});"
     );
@@ -278,6 +290,41 @@ public class Sea extends Div {
         .setColor("white");
 
     return cell;
+  }
+
+  public void applyAutoPilotStep(ShipData shipData, AutoPilotData data) {
+    if (data.getSectorDataList() != null) {
+      for (SectorData sd : data.getSectorDataList()) {
+        int sx = sd.getSectorX();
+        int sy = sd.getSectorY();
+        if (sx < 0 || sx >= 100 || sy < 0 || sy >= 100) continue;
+
+        Div cell = cells[sx][sy];
+        SectorInfo info = new SectorInfo();
+        info.setGround(sd.getGround());
+        info.setDepth(sd.getDepth());
+        info.setSectorX(sx);
+        info.setSectorY(sy);
+        applySectorToCell(cell, info);
+      }
+    }
+
+    if (data.getShipPosition() != null) {
+      int newX = data.getShipPosition().getX();
+      int newY = data.getShipPosition().getY();
+
+      Div oldCell = shipCells.get(shipData);
+      if (oldCell != null) {
+        oldCell.getChildren()
+            .filter(c -> c instanceof Image)
+            .findFirst()
+            .ifPresent(oldCell::remove);
+      }
+
+      shipData.setSectorX(newX);
+      shipData.setSectorY(newY);
+      placeShipOnSea(shipData);
+    }
   }
 
   public Div getCell(int x,int y){

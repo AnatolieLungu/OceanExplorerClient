@@ -34,7 +34,7 @@ public class ShipBaseServerClient {
 
   public List<SectorInfo> loadMap(){
     SectorInfo[] map = webClient.get()
-        .uri("/shipBaseServerAPI/allSectorData")
+        .uri("/shipBaseServerAPI/allSectorInfo")
         .retrieve()
         .bodyToMono(SectorInfo[].class)
         .block();

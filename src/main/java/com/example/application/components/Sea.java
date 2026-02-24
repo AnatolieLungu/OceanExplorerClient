@@ -19,17 +19,19 @@ import java.util.function.Consumer;
 @UIScope
 public class Sea extends Div {
 
-  private static final String INITIAL_COLOR = "#d4f1f9";
+  // Unknown/not-yet-loaded sectors use a neutral color (not water-like blue).
+  private static final String INITIAL_COLOR = "#4b5563";
   private static final double[] ZOOM_LEVELS = {1, 2, 3, 5, 8};
   private static final int BASE_SIZE = 720;
 
   private final ShipCommandService shipService;
   public final Div[][] cells = new Div[100][100];
-  private final Map<ShipData, Div> shipCells = new HashMap<>();
+  private final Map<String, Div> shipCells = new HashMap<>();
   private final Div gridContainer = new Div();
 
   private int currentZoomIndex = 0;
-  private Consumer<Double> wheelZoomListener;
+  // Do not serialize runtime UI callback across restarts/hot-reload.
+  private transient Consumer<Double> wheelZoomListener;
 
   public Sea(ShipCommandService shipService) {
     this.shipService = shipService;
@@ -58,11 +60,18 @@ public class Sea extends Div {
 
   private void loadMap() {
     List<SectorInfo> sectors = shipService.loadMap();
+    applyMapSectors(sectors);
+  }
+
+  public void applyMapSectors(List<SectorInfo> sectors) {
+    if (sectors == null || sectors.isEmpty()) {
+      return;
+    }
     for (SectorInfo sector : sectors) {
       int x = sector.getSectorX();
       int y = sector.getSectorY();
 
-      if (x < 0 || x >= 99 || y < 0 || y >= 99) {
+      if (x < 0 || x >= 100 || y < 0 || y >= 100) {
         continue;
       }
       Div cell = cells[x][y];
@@ -120,6 +129,10 @@ public class Sea extends Div {
   public void placeShipOnSea(ShipData shipData) {
     int x = shipData.getSectorX();
     int y = shipData.getSectorY();
+    String shipId = shipData.getShipId();
+    if (shipId == null || shipId.isBlank()) {
+      return;
+    }
 
     Image img = new Image("images/ship.png", shipData.getShipName());
     img.setWidth("100%");
@@ -133,14 +146,26 @@ public class Sea extends Div {
 
     img.getStyle().set("transform", rotation);
 
-    Div cell = cells[x][y];;
+    Div previousCell = shipCells.get(shipId);
+    if (previousCell != null) {
+      previousCell.getChildren()
+          .filter(component -> component instanceof Image)
+          .findFirst()
+          .ifPresent(previousCell::remove);
+    }
+
+    Div cell = cells[x][y];
     cell.add(img);
 
-    shipCells.put(shipData, cell);
+    shipCells.put(shipId, cell);
   }
 
   public void removeShipFromSea(ShipData shipData) {
-    Div cell = shipCells.remove(shipData);
+    String shipId = shipData.getShipId();
+    if (shipId == null || shipId.isBlank()) {
+      return;
+    }
+    Div cell = shipCells.remove(shipId);
     if (cell != null) {
       cell.getChildren()
           .filter(component -> component instanceof Image)
@@ -159,7 +184,12 @@ public class Sea extends Div {
     int newY = oldY + direction.getDy();
     System.out.println("sector :" + newX + " ..... " + newY);
 
-    Div oldCell = shipCells.get(shipData);
+    String shipId = shipData.getShipId();
+    if (shipId == null || shipId.isBlank()) {
+      return;
+    }
+
+    Div oldCell = shipCells.get(shipId);
     if (oldCell != null) {
       oldCell.getChildren()
           .filter(component -> component instanceof Image)
@@ -278,6 +308,8 @@ public class Sea extends Div {
   private Div createBaseCell() {
     Div cell = new Div();
     cell.getStyle()
+        // Border/Highlight soll die Zellgröße nicht verändern (verhindert "Zoom"-Effekt).
+        .set("box-sizing", "border-box")
         .setWidth("100%")
         .setHeight("100%")
         .setBackground(INITIAL_COLOR)
@@ -313,7 +345,12 @@ public class Sea extends Div {
       int newX = data.getShipPosition().getX();
       int newY = data.getShipPosition().getY();
 
-      Div oldCell = shipCells.get(shipData);
+      String shipId = shipData.getShipId();
+      if (shipId == null || shipId.isBlank()) {
+        return;
+      }
+
+      Div oldCell = shipCells.get(shipId);
       if (oldCell != null) {
         oldCell.getChildren()
             .filter(c -> c instanceof Image)

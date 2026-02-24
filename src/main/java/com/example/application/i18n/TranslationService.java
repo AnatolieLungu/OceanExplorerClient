@@ -48,6 +48,13 @@ public class TranslationService {
         en.put("autopilot.started",     "Autopilot started");
         en.put("autopilot.stopped",     "Autopilot stopped");
         en.put("autopilot.error",       "Autopilot error");
+        en.put("legend.title",          "Color Legend");
+        en.put("legend.water",          "Water");
+        en.put("legend.deepwater",      "Deep water");
+        en.put("legend.land",           "Land");
+        en.put("legend.harbour",        "Harbour");
+        en.put("legend.ice",            "Ice");
+        en.put("legend.unknown",        "Unknown");
         TRANSLATIONS.put("en", en);
 
         // ── Deutsch ────────────────────────────────────────────────────────
@@ -79,6 +86,13 @@ public class TranslationService {
         de.put("autopilot.started",     "Autopilot gestartet");
         de.put("autopilot.stopped",     "Autopilot gestoppt");
         de.put("autopilot.error",       "Autopilot-Fehler");
+        de.put("legend.title",          "Farblegende");
+        de.put("legend.water",          "Wasser");
+        de.put("legend.deepwater",      "Tiefes Wasser");
+        de.put("legend.land",           "Land");
+        de.put("legend.harbour",        "Hafen");
+        de.put("legend.ice",            "Eis");
+        de.put("legend.unknown",        "Unbekannt");
         TRANSLATIONS.put("de", de);
     }
 

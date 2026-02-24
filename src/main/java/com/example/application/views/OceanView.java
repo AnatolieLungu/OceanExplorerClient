@@ -90,7 +90,7 @@ public class OceanView extends VerticalLayout {
         seaWrapper.add(sea, zoomControl);
 
         MainLayout mainLayout = new MainLayout();
-        mainLayout.add(seaWrapper, controlPanel);
+        mainLayout.add(controlPanel.getShipSelectionPanel(), seaWrapper, controlPanel);
 
         add(mainLayout);
 
